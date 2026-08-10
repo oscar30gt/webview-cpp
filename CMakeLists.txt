@@ -12,13 +12,13 @@ add_executable(webview-cpp
 
 if(MSVC)
     # Flags for MSVC
-    target_compile_options(webview-cpp PRIVATE /W4 /wd4100 /wd4101 /wd4996)
+    target_compile_options(webview-cpp PRIVATE /W4 /wd4100 /wd4101 /wd4996 /DDEBUG)
     
     # Prevent windows.h from defining min/max macros and reduce the size of the Win32 header files
     target_compile_definitions(webview-cpp PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN) 
 else()
     # Flags for GCC / Clang
-    target_compile_options(webview-cpp PRIVATE -Wall -Wextra -Wno-unknown-pragmas -Wno-deprecated-declarations)
+    target_compile_options(webview-cpp PRIVATE -Wall -Wextra -Wno-unknown-pragmas -Wno-deprecated-declarations -DDEBUG)
 endif()
 
 target_include_directories(webview-cpp PRIVATE .)

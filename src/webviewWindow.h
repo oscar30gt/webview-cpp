@@ -18,10 +18,10 @@
 class WebviewWindow;
 
 /// Type alias for event and binding arguments, represented as a vector of strings.
-using BindingArgsType = std::vector<Json::Value>;
+using JsonArgsVector = std::vector<Json::Value>;
 
-// Type alias for event callback functions, which take a const reference to BindingArgsType as an argument.
-using EventCallback = std::function<void(const BindingArgsType& args)>;
+// Type alias for event callback functions, which take a const reference to JsonArgsVector as an argument.
+using EventCallback = std::function<void(const JsonArgsVector& args)>;
 
 /// Supported window styles. Styles might vary across platforms.
 /// @note For styles other than Native, the native titlebar will not be displayed. Thus,
@@ -63,7 +63,7 @@ std::is_invocable_r_v<Json::Value, F, WebviewWindow&, const std::vector<Json::Va
 /// @returns true if parsing was successful; false otherwise.
 bool parseWebviewReq(
     const std::string& req,
-    BindingArgsType& outArgs
+    JsonArgsVector& outArgs
 );
 
 /// Registers platform-specific bindings for the webview instance, for callbacks that directly 
@@ -131,7 +131,7 @@ public:
     /// Emits an event to the webview window.
     /// @param eventName The name of the event to emit.
     /// @param args Optional vector of JSON values containing additional data related to the event.
-    void emit(const std::string& eventName, const BindingArgsType& args = BindingArgsType());
+    void emit(const std::string& eventName, const JsonArgsVector& args = JsonArgsVector());
 
     /// Registers a callback function to be invoked when a certain event is triggered.
     /// @param eventName The name of the event to listen for.
@@ -198,11 +198,6 @@ private:
     /// Each channel can have multiple callbacks associated with it. 
     std::unordered_multimap<std::string, EventCallback> m_listeners;
 
-    /// Dispatches an event to all its registered listeners.
-    /// @param eventName The name of the event to dispatch.
-    /// @param args Vector of arguments to pass to the listener callbacks.
-    void dispatchEvent(const std::string& eventName, BindingArgsType args);
-
     /// Sets up built-in bindings for the webview window, which are used for communication
     /// of built-in events, such as window control actions (maximize, minimize, close, etc.)
     /// or querying window state (size, position, etc.) from the frontend.
@@ -219,22 +214,22 @@ namespace {
     template <BindableCallback F>
     auto makeUnifiedBindingCallback(F&& fn) {
         return [fn = std::forward<F>(fn)]
-        (WebviewWindow& win, const BindingArgsType& args) -> Json::Value
+        (WebviewWindow& win, const JsonArgsVector& args) -> Json::Value
         {
             // (win, args) -> Json::Value
-            if constexpr (std::is_invocable_r_v<Json::Value, F, WebviewWindow&, const BindingArgsType&>)
+            if constexpr (std::is_invocable_r_v<Json::Value, F, WebviewWindow&, const JsonArgsVector&>)
                 return fn(win, args);
 
             // (win, args) -> void
-            if constexpr (std::is_invocable_r_v<void, F, WebviewWindow&, const BindingArgsType&>)
+            if constexpr (std::is_invocable_r_v<void, F, WebviewWindow&, const JsonArgsVector&>)
                 return (fn(win, args), Json::Value::nullRef);
 
             // (args) -> Json::Value
-            if constexpr (std::is_invocable_r_v<Json::Value, F, const BindingArgsType&>)
+            if constexpr (std::is_invocable_r_v<Json::Value, F, const JsonArgsVector&>)
                 return fn(args);
 
             // (args) -> void
-            if constexpr (std::is_invocable_r_v<void, F, const BindingArgsType&>)
+            if constexpr (std::is_invocable_r_v<void, F, const JsonArgsVector&>)
                 return (fn(args), Json::Value::nullRef);
 
             // () -> Json::Value
@@ -260,7 +255,7 @@ void WebviewWindow::bind(const std::string& name, F&& fn) {
         (const std::string& req) -> std::string
         {
             std::ostringstream ss;
-            BindingArgsType args;
+            JsonArgsVector args;
             if (parseWebviewReq(req, args))
             {
                 Json::Value ret = callbackFn(*this, args);

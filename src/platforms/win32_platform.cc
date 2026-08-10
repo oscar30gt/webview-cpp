@@ -297,7 +297,7 @@ void setupPlatformSpecificBindings(WebviewWindow* window)
     if (!hwnd) return;
 
     window->m_webview.bind(
-        "engine:startWindowDrag",
+        "webview:startWindowDrag",
         [hwnd](const std::string&) -> std::string
         {
             ReleaseCapture();

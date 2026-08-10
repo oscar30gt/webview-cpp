@@ -1,6 +1,6 @@
 #include <sstream>
 #include <functional>
-
+#include <iostream>
 #include "webviewWindow.h"
 
 // -------- Constructors & Destructor -----------------------------------------------------------
@@ -22,13 +22,12 @@ WebviewWindow::WebviewWindow(int width, int height)
         "webview:customEvent",
         [this](const std::string& req) -> std::string
         {
-            BindingArgsType args;
-
+            JsonArgsVector args;
             if (parseWebviewReq(req, args))
             {
-                std::string channel = args[0].asString();
+                std::string name = args[0].asString();
                 args.erase(args.begin());
-                this->dispatchEvent(channel, args);
+                this->emit(name, args);
             }
 
             return R"({"status":true})";
@@ -52,9 +51,9 @@ WebviewWindow::~WebviewWindow() = default;
 void WebviewWindow::run() { m_webview.run(); }
 void WebviewWindow::terminate() { m_webview.terminate(); }
 
-void WebviewWindow::emit(const std::string& eventName, const BindingArgsType& args)
+void WebviewWindow::emit(const std::string& eventName, const JsonArgsVector& args)
 {
-    // Dispatch a custom event to the webview's JavaScript context with the event name and payload.
+    // Notify the webview window
     std::ostringstream js;
     js << "window.dispatchEvent(new CustomEvent('webview-event', { detail: {"
         << "eventName: '" << eventName << "', args: [";
@@ -67,8 +66,12 @@ void WebviewWindow::emit(const std::string& eventName, const BindingArgsType& ar
     js << "]}}));";
     m_webview.eval(js.str());
 
-    // Notify any registered listeners in the C++ context about the event.
-    dispatchEvent(eventName, args);
+    // Notify registered listeners in the C++ context.
+    auto range = m_listeners.equal_range(eventName);
+    for (auto it = range.first; it != range.second; ++it)
+    {
+        it->second(args);
+    }
 }
 
 void WebviewWindow::on(const std::string& channel, EventCallback callback)
@@ -157,18 +160,10 @@ bool WebviewWindow::isHidden() const
 
 // -------- Private Methods -----------------------------------------------------------------------
 
-void WebviewWindow::dispatchEvent(const std::string& eventName, BindingArgsType args)
-{
-    auto range = m_listeners.equal_range(eventName);
-
-    for (auto it = range.first; it != range.second; ++it)
-    {
-        it->second(args);
-    }
-}
 
 void WebviewWindow::setupBuiltinBindings()
 {
+    // maximizeWindow(), minimizeWindow(), restoreWindow(), closeWindow(), showWindow(), hideWindow()
     m_webview.bind("webview:maximize", [this](const std::string& /* req */) { this->maximize(); return "";});
     m_webview.bind("webview:minimize", [this](const std::string& /* req */) { this->minimize(); return "";});
     m_webview.bind("webview:restore", [this](const std::string& /* req */) { this->restore(); return "";});
@@ -176,100 +171,101 @@ void WebviewWindow::setupBuiltinBindings()
     m_webview.bind("webview:show", [this](const std::string& /* req */) { this->show(); return "";});
     m_webview.bind("webview:hide", [this](const std::string& /* req */) { this->hide(); return "";});
 
+    // setWindowTitle(title: string);
+    m_webview.bind("webview:setTitle", [this](const std::string& req) {
+        JsonArgsVector args;
+        parseWebviewReq(req, args);
+        this->setTitle(args[0].asString());
+        return "";
+    });
+
+    // setWindowResizable(resizable: boolean);
     m_webview.bind("webview:setResizable",
         [this](const std::string& req) {
-            this->setResizable(req == "true");
+            this->setResizable(req == "[true]");
             return "";
         }
     );
 
+    // setWindowAlwaysOnTop(alwaysOnTop: boolean);
     m_webview.bind("webview:setAlwaysOnTop",
         [this](const std::string& req) {
-            this->setAlwaysOnTop(req == "true");
+            this->setAlwaysOnTop(req == "[true]");
             return "";
         }
     );
 
+    // setWindowSize(width: number, height: number);
+    m_webview.bind("webview:setSize",
+        [this](const std::string& req) {
+            int w, h;
+            sscanf(req.c_str(), "[%d,%d]", &w, &h);
+            this->setSize(w, h);
+            return "";
+        }
+    );
+
+    // setWindowMinSize(width: number, height: number);
     m_webview.bind("webview:setMinSize",
         [this](const std::string& req) {
             int w, h;
-            std::istringstream stream(req);
-            stream.ignore(); // Ignore the first character (assumed to be '[')
-            stream >> w;
-            stream.ignore(); // Ignore the comma
-            stream >> h;
-
+            sscanf(req.c_str(), "[%d,%d]", &w, &h);
             this->setMinSize(w, h);
             return "";
         }
     );
 
+    // setWindowMaxSize(width: number, height: number);
     m_webview.bind("webview:setMaxSize",
         [this](const std::string& req) {
             int w, h;
-            std::istringstream stream(req);
-            stream.ignore(); // Ignore the first character (assumed to be '[')
-            stream >> w;
-            stream.ignore(); // Ignore the comma
-            stream >> h;
-
+            sscanf(req.c_str(), "[%d,%d]", &w, &h);
             this->setMaxSize(w, h);
             return "";
         }
     );
 
+    // moveWindowTo(x: number, y: number);
     m_webview.bind("webview:moveTo",
         [this](const std::string& req) {
             int x, y;
-            std::istringstream stream(req);
-            stream.ignore(); // Ignore the first character (assumed to be '[')
-            stream >> x;
-            stream.ignore(); // Ignore the comma
-            stream >> y;
-
+            sscanf(req.c_str(), "[%d,%d]", &x, &y);
             this->moveTo(x, y);
             return "";
         }
     );
 
+    // moveWindowBy(deltaX: number, deltaY: number);
     m_webview.bind("webview:moveBy",
         [this](const std::string& req) {
             int deltaX, deltaY;
-            std::istringstream stream(req);
-            stream.ignore(); // Ignore the first character (assumed to be '[')
-            stream >> deltaX;
-            stream.ignore(); // Ignore the comma
-            stream >> deltaY;
-
+            sscanf(req.c_str(), "[%d,%d]", &deltaX, &deltaY);
             this->moveBy(deltaX, deltaY);
             return "";
         }
     );
 
+    // getWindowSize(): [number, number];
     m_webview.bind("webview:getSize",
         [this](const std::string& /* req */) {
             WindowSize size = this->getSize();
-            Json::Value root;
-            root.append(size.width);
-            root.append(size.height);
-            Json::StreamWriterBuilder writerBuilder;
-            std::string output = Json::writeString(writerBuilder, root);
-            return output;
+            std::ostringstream oss;
+            oss << "{\"width\":" << size.width << ",\"height\":" << size.height << "}";
+            return oss.str();
         }
     );
 
+    // getWindowPosition(): [number, number];
     m_webview.bind("webview:getPosition",
         [this](const std::string& /* req */) {
             WindowPosition pos = this->getPosition();
-            Json::Value root;
-            root.append(pos.x);
-            root.append(pos.y);
-            Json::StreamWriterBuilder writerBuilder;
-            std::string output = Json::writeString(writerBuilder, root);
-            return output;
+            std::ostringstream oss;
+            oss << "{\"x\":" << pos.x << ",\"y\":" << pos.y << "}";
+            return oss.str();
         }
     );
 
+    // isResizable(): boolean;
     m_webview.bind("webview:isResizable",
         [this](const std::string& /* req */) {
             bool resizable = this->isResizable();
@@ -277,6 +273,7 @@ void WebviewWindow::setupBuiltinBindings()
         }
     );
 
+    // isAlwaysOnTop(): boolean;
     m_webview.bind("webview:isAlwaysOnTop",
         [this](const std::string& /* req */) {
             bool alwaysOnTop = this->isAlwaysOnTop();
@@ -284,6 +281,7 @@ void WebviewWindow::setupBuiltinBindings()
         }
     );
 
+    // isMaximized(): boolean;
     m_webview.bind("webview:isMaximized",
         [this](const std::string& /* req */) {
             bool maximized = this->isMaximized();
@@ -291,6 +289,7 @@ void WebviewWindow::setupBuiltinBindings()
         }
     );
 
+    // isMinimized(): boolean;
     m_webview.bind("webview:isMinimized",
         [this](const std::string& /* req */) {
             bool minimized = this->isMinimized();
@@ -298,10 +297,19 @@ void WebviewWindow::setupBuiltinBindings()
         }
     );
 
+    // isRestored(): boolean;
     m_webview.bind("webview:isRestored",
         [this](const std::string& /* req */) {
             bool restored = this->isRestored();
             return restored ? "true" : "false";
+        }
+    );
+
+    // isHidden(): boolean;
+    m_webview.bind("webview:isHidden",
+        [this](const std::string& /* req */) {
+            bool hidden = this->isHidden();
+            return hidden ? "true" : "false";
         }
     );
 }
@@ -309,7 +317,7 @@ void WebviewWindow::setupBuiltinBindings()
 // -------- Helpers -----------------------------------------------------------------------------
 
 bool parseWebviewReq(
-    const std::string& req, BindingArgsType& outArgs
+    const std::string& req, JsonArgsVector& outArgs
 )
 {
     Json::Value root;

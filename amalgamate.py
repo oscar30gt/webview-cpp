@@ -9,8 +9,12 @@ OUTPUT_DIR = os.path.join(ROOT_DIR, "dist")
 FILES_TO_PROCESS = [
     "webviewWindow.h",
     "webviewWindow.cc",
-    "platforms/win32_platform.cc",
-    "platforms/macos_platform.cc",
+    "macos/core.cc",
+    "win32/core.cc",
+    "win32/styles.cc",
+    "win32/bindings.cc",
+    "win32/builder.cc",
+    "win32/events.cc",
     "lib/json/json.cc",
 ]
 

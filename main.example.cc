@@ -1,4 +1,4 @@
-// g++ main.example.cc -o main.exe -lole32 -lshell32 -luuid -lcomctl32 -ldwmapi -lgdi32 -std=c++20
+// g++ main.example.cc dist/webview-cpp.cc -o main.exe -lole32 -lshell32 -luuid -lcomctl32 -ldwmapi -lgdi32 -std=c++20
 
 #include "dist/webview-cpp.h"
 

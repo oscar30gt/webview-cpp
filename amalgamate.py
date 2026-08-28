@@ -1,17 +1,17 @@
 import os
 import re
+import argparse
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(ROOT_DIR, "src")
 OUTPUT_DIR = os.path.join(ROOT_DIR, "dist")
 
-# Archivo de entrada para la interfaz publica (.h)
 HEADER_ENTRY = "webviewWindow.h"
 
-# Lista de archivos de implementación para concatenar (.cc)
 SOURCES_TO_PROCESS = [
     "webviewWindow.cc",
     "macos/core.cc",
+    "macos/bindings.cc",
     "win32/core.cc",
     "win32/styles.cc",
     "win32/bindings.cc",
@@ -20,14 +20,10 @@ SOURCES_TO_PROCESS = [
     "lib/json/json.cc",
 ]
 
-# Regex para detectar inclusiones locales: #include "filename"
+# Regex for local includes: #include "filename"
 INCLUDE_QUOTE_REGEX = re.compile(r'^\s*#include\s+"([^"]+)"')
 
-
 def process_header(file_path, included_files, include_stack=None):
-    """
-    Procesa recursivamente la interfaz (.h), resolviendo dependencias internas (#include "...").
-    """
     if include_stack is None:
         include_stack = []
 
@@ -82,9 +78,6 @@ def process_header(file_path, included_files, include_stack=None):
 
 
 def process_source(file_path):
-    """
-    Procesa un archivo .cc omitiendo las inclusiones por comillas (#include "...").
-    """
     abs_path = os.path.abspath(file_path)
 
     if not os.path.exists(abs_path):
@@ -102,7 +95,7 @@ def process_source(file_path):
             content += f"{line.strip()} [OMITTED]\n"
             continue
 
-        # Eliminar cualquier #include "..." local en las implementaciones
+        # Remove local includes from source files to avoid duplication
         if INCLUDE_QUOTE_REGEX.match(line):
             continue
 
@@ -115,38 +108,66 @@ def process_source(file_path):
 
 
 def main():
+    # Setup CLI argument parsing
+    parser = argparse.ArgumentParser(description="Amalgamate C++ source files.")
+    parser.add_argument(
+        "--single-header", 
+        action="store_true", 
+        help="Combine both headers and source implementations into a single .h file."
+    )
+    args = parser.parse_args()
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # 1. Generar webview-cpp.h
-    print(f"Generating Header Amalgamation from {HEADER_ENTRY}...")
-    included_files = set()
-    header_content = "#pragma once\n\n"
-    header_full_path = os.path.join(SRC_DIR, HEADER_ENTRY)
-    header_content += process_header(header_full_path, included_files)
+    if args.single_header:
+        # Generate everything into a single header file
+        included_files = set()
+        
+        header_content = "#ifndef WEBVIEW_CPP_H\n#define WEBVIEW_CPP_H\n\n"
+        
+        # Append all header definitions
+        header_full_path = os.path.join(SRC_DIR, HEADER_ENTRY)
+        header_content += process_header(header_full_path, included_files)
 
-    header_output_path = os.path.join(OUTPUT_DIR, "webview-cpp.h")
-    with open(header_output_path, "w", encoding="utf-8") as f:
-        f.write(header_content)
+        # Append all source implementations
+        for rel_path in SOURCES_TO_PROCESS:
+            full_path = os.path.join(SRC_DIR, rel_path)
+            header_content += process_source(full_path)
 
-    print(f"  -> Generated: {header_output_path}")
+        # Close implementation guard and main include guard
+        header_content += "\n#endif // WEBVIEW_CPP_H\n"
 
-    # 2. Generar webview-cpp.cc
-    print("\nGenerating Source Amalgamation (.cc)...")
-    source_content = '#include "webview-cpp.h"\n\n'
+        output_path = os.path.join(OUTPUT_DIR, "webview-cpp.h")
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(header_content)
 
-    for rel_path in SOURCES_TO_PROCESS:
-        display_name = rel_path.replace(os.sep, "/")
-        print(f"  Appending {display_name}...")
+        print(f"  -> Generated: {output_path}")
 
-        full_path = os.path.join(SRC_DIR, rel_path)
-        source_content += process_source(full_path)
+    else:
+        # Original behavior: Generate separate .h and .cc files
+        # 1. webview-cpp.h
+        included_files = set()
+        header_content = "#ifndef WEBVIEW_CPP_H\n#define WEBVIEW_CPP_H\n"
+        header_full_path = os.path.join(SRC_DIR, HEADER_ENTRY)
+        header_content += process_header(header_full_path, included_files)
+        header_content += "\n#endif // WEBVIEW_CPP_H\n"
 
-    source_output_path = os.path.join(OUTPUT_DIR, "webview-cpp.cc")
-    with open(source_output_path, "w", encoding="utf-8") as f:
-        f.write(source_content)
+        header_output_path = os.path.join(OUTPUT_DIR, "webview-cpp.h")
+        with open(header_output_path, "w", encoding="utf-8") as f:
+            f.write(header_content)
 
-    print(f"  -> Generated: {source_output_path}")
-    print("\nProcess finished successfully!")
+        # 2. webview-cpp.cc
+        source_content = '#include "webview-cpp.h"\n\n'
+
+        for rel_path in SOURCES_TO_PROCESS:
+            full_path = os.path.join(SRC_DIR, rel_path)
+            source_content += process_source(full_path)
+
+        source_output_path = os.path.join(OUTPUT_DIR, "webview-cpp.cc")
+        with open(source_output_path, "w", encoding="utf-8") as f:
+            f.write(source_content)
+
+        print(f"  -> Generated: {source_output_path}")
 
 
 if __name__ == "__main__":

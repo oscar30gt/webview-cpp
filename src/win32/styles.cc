@@ -240,20 +240,20 @@ void WebviewWindow::setFrame(WindowFrameStyle frameStyle)
     {
         case WindowFrameStyle::All:
             style |= WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
-            // removeTopResizerOverlay(m_windowHandle.hwnd);
+            removeTopResizerOverlay(m_windowHandle.hwnd);
             RemoveWindowSubclass(m_windowHandle.hwnd, StyleSubclassProc, WINDOW_STYLE_PROC_ID);
             break;
 
         case WindowFrameStyle::NoTitlebar:
             style |= WS_THICKFRAME | WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
             style &= ~WS_SYSMENU;
-            // createTopResizerOverlay(m_windowHandle.hwnd);
+            createTopResizerOverlay(m_windowHandle.hwnd);
             SetWindowSubclass(m_windowHandle.hwnd, StyleSubclassProc, WINDOW_STYLE_PROC_ID, 0);
             break;
 
         case WindowFrameStyle::None:
             style &= ~(WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
-            // removeTopResizerOverlay(m_windowHandle.hwnd);
+            removeTopResizerOverlay(m_windowHandle.hwnd);
             RemoveWindowSubclass(m_windowHandle.hwnd, StyleSubclassProc, WINDOW_STYLE_PROC_ID);
             break;
 

@@ -1,8 +1,8 @@
 # webview-cpp
 
-webview-cpp is a C++ library that provides a simple and lightweight way to create web-based user interfaces for desktop applications. It is built on top of (webview/webview)[https://github.com/webview/webview], providing a more high-level interface for developers to create webview windows and interact with them.
+_webview-cpp_ is a C++ library that provides a simple and lightweight way to create web-based user interfaces for desktop applications. It provides a multiplatform (Windows [WebView2] and macOS [WebKit]) library for managing webview windows.
 
-Also, a [NPM package]() is available for apps built with webview-cpp, providing a simple interface to communicate between the webview and the C++ application.
+Also, a [NPM package]("https://github.com/oscar30gt/webview-cpp-api") is available for apps built with webview-cpp, providing a simple interface to communicate between the webview and the C++ application.
 
 ## Installation
 
@@ -12,21 +12,32 @@ Also, a [NPM package]() is available for apps built with webview-cpp, providing 
    git clone "https://github.com/oscar30gt/webview-cpp.git"
    ```
 
-2. Build the single header file using python:
+2. Generate a single header file for the library using the provided `amalgamate.py` script:
+
+   ```bash
+   python amalgamate.py --single-header
+   ```
+
+   - Or bundle it while keeping separate header and implementation files:
 
    ```bash
    python amalgamate.py
    ```
 
-> This step is optional, but it is recommended to reduce the number of files in your project.
+3. Include the generated header file in your C++ project.
 
-3. Use CMake to build the test project:
+> [!IMPORTANT]
+> **Windows:** You will need to download the [WebView2](https://www.nuget.org/packages/microsoft.web.webview2) header files and place them in your project (inside a `lib/` directory).
 
-   ```bash
-   cmake -B build
-   cmake --build build
-   ```
+## Example Project
 
-> [!NOTE]
-> **WINDOWS:** As webview-cpp uses WebView2, you will need to download the [WebView2](https://www.nuget.org/packages/microsoft.web.webview2) header files and place them on the same directory as the amalgamated header file.
-> If you opt not to use the amalgamated header file, place them on the lib/ directory.
+You can compile a simple example project using the provided `main.example.cc` file. Compile it with the following command:
+
+```bash
+g++ main.example.cc -o main.exe -lole32 -lshell32 -luuid -lcomctl32 -ldwmapi -lgdi32 -std=c++20 # Windows
+clang++ main.example.cc -o main -std=c++20 -x objective-c++ -framework WebKit -framework Cocoa  # macOS
+```
+
+## License
+
+[MIT](LICENSE)

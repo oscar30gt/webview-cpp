@@ -98,7 +98,16 @@ struct NativeWindowHandle {
 
 #ifdef __APPLE__
 
-// Macos implementation
+/// NativeWindowHandle for macOS.
+/// Stored as opaque void* pointers to avoid including Cocoa/WebKit headers
+/// in the public platform-agnostic header.
+struct NativeWindowHandle {
+    void* nsWindow = nullptr;        ///< NSWindow* (retained)
+    void* wkWebView = nullptr;       ///< WKWebView* (retained)
+    void* windowDelegate = nullptr;  ///< NSWindowDelegate* (retained)
+    void* scriptDelegate = nullptr;  ///< WKScriptMessageHandler* (retained)
+    bool  ready = false;
+};
 
 #endif
 

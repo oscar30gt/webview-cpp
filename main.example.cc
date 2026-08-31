@@ -1,5 +1,5 @@
 // Windows: g++ main.example.cc -o main.exe -lole32 -lshell32 -luuid -lcomctl32 -ldwmapi -lgdi32 -std=c++20
-// macOS:   clang++ main.example.cc -o main -std=c++20 -x objective-c++ -framework WebKit -framework Cocoa
+// macOS:   clang++ -x objective-c++ main.example.cc -o main -std=c++20 -framework WebKit -framework Cocoa
 
 #include "dist/webview-cpp.h"
 #include <iostream>
